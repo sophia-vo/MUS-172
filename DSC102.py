@@ -102,17 +102,15 @@ def task_2(data_io, product_data):
 
     # ---------------------- Your implementation begins------------------------
 
-    cat_col = F.col(categories_column)
+    extracted_category = F.col(categories_column).getItem(0).getItem(0)
+    
     product_flat = (
-        product_data
-        .withColumn(
+        product_data.withColumn(
             category_column,
             F.when(
-                cat_col.isNull() | (F.size(cat_col) == 0),
+                (extracted_category.isNull()) | (extracted_category == ""), 
                 F.lit(None)
-            ).otherwise(
-                cat_col.getItem(0).getItem(0)
-            )
+            ).otherwise(extracted_category)
         )
     )
 
@@ -158,7 +156,7 @@ def task_2(data_io, product_data):
 
     count_total = product_flat.count()
 
-    # Mean and variance of bestSalesRank (nulls ignored)
+    # Mean and variance of bestSalesRank (nulls ignored automatically by agg functions)
     stats_row = product_flat.agg(
         F.mean(bestSalesRank_column).alias('mean_bestSalesRank'),
         F.variance(bestSalesRank_column).alias('variance_bestSalesRank')
