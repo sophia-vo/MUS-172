@@ -347,3 +347,81 @@ def task_3(data_io, product_data):
     return res
     # -------------------------------------------------------------------------
 
+
+# %load -s task_4 assignment2.py
+def task_4(data_io, product_data):
+    # -----------------------------Column names--------------------------------
+    # Inputs:
+    price_column = 'price'
+    title_column = 'title'
+    # Outputs:
+    meanImputedPrice_column = 'meanImputedPrice'
+    medianImputedPrice_column = 'medianImputedPrice'
+    unknownImputedTitle_column = 'unknownImputedTitle'
+    # -------------------------------------------------------------------------
+    
+    from pyspark.sql import functions as F
+    from pyspark.sql.types import FloatType
+    
+    # ---------------------- Your implementation begins------------------------
+    
+    # 1. Cast price to float and calculate mean for imputation
+    df_with_float = product_data.withColumn("price_float", F.col(price_column).cast(FloatType()))
+    
+    # Calculate mean of non-null price values
+    mean_price = df_with_float.select(F.mean("price_float")).first()[0]
+    
+    # Impute nulls with mean
+    df_mean_imputed = df_with_float.withColumn(
+        meanImputedPrice_column,
+        F.when(F.col("price_float").isNull(), mean_price).otherwise(F.col("price_float"))
+    )
+    
+    # 2. Calculate median and impute
+    median_price = df_with_float.select(
+        F.expr("percentile_approx(price_float, 0.5)")
+    ).first()[0]
+    
+    df_median_imputed = df_mean_imputed.withColumn(
+        medianImputedPrice_column,
+        F.when(F.col("price_float").isNull(), median_price).otherwise(F.col("price_float"))
+    )
+    
+    # 3. Impute title with 'unknown' for nulls and empty strings
+    df_final = df_median_imputed.withColumn(
+        unknownImputedTitle_column,
+        F.when(
+            (F.col(title_column).isNull()) | (F.trim(F.col(title_column)) == ""),
+            "unknown"
+        ).otherwise(F.col(title_column))
+    )
+    
+    # 4. Calculate statistics
+    stats = df_final.select(
+        F.count("*").alias("count_total"),
+        F.mean(meanImputedPrice_column).alias("mean_meanImputedPrice"),
+        F.variance(meanImputedPrice_column).alias("variance_meanImputedPrice"),
+        F.sum(F.when(F.col(meanImputedPrice_column).isNull(), 1).otherwise(0)).alias("numNulls_meanImputedPrice"),
+        F.mean(medianImputedPrice_column).alias("mean_medianImputedPrice"),
+        F.variance(medianImputedPrice_column).alias("variance_medianImputedPrice"),
+        F.sum(F.when(F.col(medianImputedPrice_column).isNull(), 1).otherwise(0)).alias("numNulls_medianImputedPrice"),
+        F.sum(F.when(F.col(unknownImputedTitle_column) == "unknown", 1).otherwise(0)).alias("numUnknowns_unknownImputedTitle")
+    ).first()
+    
+    # ---------------------- Put results in res dict --------------------------
+    res = {
+        'count_total': stats["count_total"],
+        'mean_meanImputedPrice': stats["mean_meanImputedPrice"],
+        'variance_meanImputedPrice': stats["variance_meanImputedPrice"],
+        'numNulls_meanImputedPrice': stats["numNulls_meanImputedPrice"],
+        'mean_medianImputedPrice': stats["mean_medianImputedPrice"],
+        'variance_medianImputedPrice': stats["variance_medianImputedPrice"],
+        'numNulls_medianImputedPrice': stats["numNulls_medianImputedPrice"],
+        'numUnknowns_unknownImputedTitle': float(stats["numUnknowns_unknownImputedTitle"])
+    }
+    # -------------------------------------------------------------------------
+    
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_4')
+    return res
+    # -------------------------------------------------------------------------
