@@ -553,3 +553,63 @@ def task_6(data_io, product_processed_data):
     data_io.save(res, 'task_6')
     return res
     # -------------------------------------------------------------------------
+
+
+# %load -s task_7 assignment2.py
+def task_7(data_io, train_data, test_data):
+    from pyspark.ml.feature import VectorAssembler
+    from pyspark.ml.regression import DecisionTreeRegressor
+    from pyspark.ml.evaluation import RegressionEvaluator
+    from pyspark.sql import functions as F
+
+    # ----------------------------- Column names -------------------------------
+    label_column = "overall"     # Rating to be predicted
+    prediction_column = "prediction"
+
+    # ---------------------- Your implementation begins ------------------------
+
+    # 1. Automatically identify feature columns
+    # Drop label + non-feature identifiers (asin, reviewerID if present)
+    non_feature_cols = {label_column, "asin", "reviewerID", "reviewerID", "unixReviewTime"}
+    feature_cols = [c for c in train_data.columns if c not in non_feature_cols]
+
+    # Assemble features
+    assembler = VectorAssembler(
+        inputCols=feature_cols,
+        outputCol="features"
+    )
+
+    train_vec = assembler.transform(train_data)
+    test_vec = assembler.transform(test_data)
+
+    # 2. Train Decision Tree Regressor (maxDepth = 5)
+    dt = DecisionTreeRegressor(
+        labelCol=label_column,
+        featuresCol="features",
+        maxDepth=5
+    )
+
+    model = dt.fit(train_vec)
+
+    # 3. Make predictions on test set
+    predictions = model.transform(test_vec)
+
+    # 4. Compute RMSE
+    evaluator = RegressionEvaluator(
+        labelCol=label_column,
+        predictionCol=prediction_column,
+        metricName="rmse"
+    )
+
+    test_rmse = evaluator.evaluate(predictions)
+
+    # ---------------------- Put results in res dict --------------------------
+    res = {
+        'test_rmse': float(test_rmse)
+    }
+
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_7')
+    return res
+    # -------------------------------------------------------------------------
+
