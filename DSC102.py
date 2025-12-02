@@ -612,58 +612,47 @@ def task_6(data_io, product_processed_data):
     # -------------------------------------------------------------------------
 
 
-# %load -s task_7 assignment2.py
+
+
+
+
+
+
+
+
+
 def task_7(data_io, train_data, test_data):
-    from pyspark.ml.feature import VectorAssembler
-    from pyspark.ml.regression import DecisionTreeRegressor
-    from pyspark.ml.evaluation import RegressionEvaluator
-    from pyspark.sql import functions as F
+    # ---------------------- Your implementation begins------------------------
+    features_col = 'features'
+    label_col = 'overall'
+    prediction_col = 'prediction'
 
-    # ----------------------------- Column names -------------------------------
-    label_column = "overall"     # Rating to be predicted
-    prediction_column = "prediction"
-
-    # ---------------------- Your implementation begins ------------------------
-
-    # 1. Automatically identify feature columns
-    # Drop label + non-feature identifiers (asin, reviewerID if present)
-    non_feature_cols = {label_column, "asin", "reviewerID", "reviewerID", "unixReviewTime"}
-    feature_cols = [c for c in train_data.columns if c not in non_feature_cols]
-
-    # Assemble features
-    assembler = VectorAssembler(
-        inputCols=feature_cols,
-        outputCol="features"
-    )
-
-    train_vec = assembler.transform(train_data)
-    test_vec = assembler.transform(test_data)
-
-    # 2. Train Decision Tree Regressor (maxDepth = 5)
-    dt = DecisionTreeRegressor(
-        labelCol=label_column,
-        featuresCol="features",
+    # 1. Define and train Decision Tree Regressor with maxDepth = 5
+    dt = M.regression.DecisionTreeRegressor(
+        featuresCol=features_col,
+        labelCol=label_col,
+        predictionCol=prediction_col,
         maxDepth=5
     )
+    model = dt.fit(train_data)
 
-    model = dt.fit(train_vec)
+    # 2. Predict on test data
+    predictions = model.transform(test_data)
 
-    # 3. Make predictions on test set
-    predictions = model.transform(test_vec)
-
-    # 4. Compute RMSE
-    evaluator = RegressionEvaluator(
-        labelCol=label_column,
-        predictionCol=prediction_column,
-        metricName="rmse"
+    # 3. Evaluate RMSE on test predictions
+    evaluator = M.evaluation.RegressionEvaluator(
+        labelCol=label_col,
+        predictionCol=prediction_col,
+        metricName='rmse'
     )
-
     test_rmse = evaluator.evaluate(predictions)
+    # -------------------------------------------------------------------------
 
     # ---------------------- Put results in res dict --------------------------
     res = {
         'test_rmse': float(test_rmse)
     }
+    # -------------------------------------------------------------------------
 
     # ----------------------------- Do not change -----------------------------
     data_io.save(res, 'task_7')
