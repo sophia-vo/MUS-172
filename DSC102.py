@@ -205,3 +205,145 @@ def task_2(data_io, product_data):
     return res
     # -------------------------------------------------------------------------
 
+
+
+
+
+
+
+
+
+TASK 3 HERE:
+
+# %load -s task_3 assignment2.py
+def task_3(data_io, product_data):
+    # -----------------------------Column names--------------------------------
+    # Inputs:
+    asin_column = 'asin'
+    price_column = 'price'
+    attribute = 'also_viewed'
+    related_column = 'related'
+    # Outputs:
+    meanPriceAlsoViewed_column = 'meanPriceAlsoViewed'
+    countAlsoViewed_column = 'countAlsoViewed'
+    # -------------------------------------------------------------------------
+
+    # ---------------------- Your implementation begins------------------------
+
+    also_viewed_df = product_data.select(
+        F.col(asin_column).alias(asin_column),
+        F.col(related_column).getItem(attribute).alias('also_viewed_array')
+    )
+
+    # 2) Compute countAlsoViewed
+    #    - length of the also_viewed array
+    #    - null if the array is null or empty
+    also_viewed_df = also_viewed_df.withColumn(
+        countAlsoViewed_column,
+        F.when(
+            F.col('also_viewed_array').isNull() |
+            (F.size('also_viewed_array') == 0),
+            F.lit(None).cast('int')
+        ).otherwise(F.size('also_viewed_array'))
+    )
+
+    count_df = also_viewed_df.select(
+        asin_column,
+        countAlsoViewed_column
+    )
+
+    # 3) Compute meanPriceAlsoViewed
+    #    - explode also_viewed_array to individual ASINs
+    #    - join to product_data on asin to get prices
+    #    - ignore dangling references and rows where price is null
+    #    - keep products with price == 0
+    exploded_df = also_viewed_df.select(
+        F.col(asin_column),
+        F.explode_outer('also_viewed_array').alias('also_asin')
+    )
+
+    product_prices = product_data.select(
+        F.col(asin_column).alias('asin_price'),
+        F.col(price_column).alias(price_column)
+    )
+
+    joined_prices = (
+        exploded_df
+        .join(product_prices,
+              exploded_df['also_asin'] == product_prices['asin_price'],
+              how='inner')
+        .filter(F.col(price_column).isNotNull())
+    )
+
+    mean_price_df = (
+        joined_prices
+        .groupBy(asin_column)
+        .agg(F.avg(price_column).alias(meanPriceAlsoViewed_column))
+    )
+
+    # 4) Attach the new columns back to the original product_data
+    product_with_related = (
+        product_data
+        .join(mean_price_df, on=asin_column, how='left')
+        .join(count_df, on=asin_column, how='left')
+    )
+
+
+
+    # -------------------------------------------------------------------------
+
+    # ---------------------- Put results in res dict --------------------------
+    res = {
+        'count_total': None,
+        'mean_meanPriceAlsoViewed': None,
+        'variance_meanPriceAlsoViewed': None,
+        'numNulls_meanPriceAlsoViewed': None,
+        'mean_countAlsoViewed': None,
+        'variance_countAlsoViewed': None,
+        'numNulls_countAlsoViewed': None
+    }
+    # Modify res:
+
+    count_total = product_with_related.count()
+
+    # Aggregate statistics (nulls are ignored automatically)
+    stats_row = product_with_related.agg(
+        F.mean(meanPriceAlsoViewed_column).alias('mean_meanPriceAlsoViewed'),
+        F.variance(meanPriceAlsoViewed_column).alias('variance_meanPriceAlsoViewed'),
+        F.mean(countAlsoViewed_column).alias('mean_countAlsoViewed'),
+        F.variance(countAlsoViewed_column).alias('variance_countAlsoViewed')
+    ).collect()[0]
+
+    # Null counts
+    num_nulls_mean = product_with_related.filter(
+        F.col(meanPriceAlsoViewed_column).isNull()
+    ).count()
+
+    num_nulls_count = product_with_related.filter(
+        F.col(countAlsoViewed_column).isNull()
+    ).count()
+
+    # Fill res with native Python types
+    res['count_total'] = int(count_total)
+
+    mean_mean = stats_row['mean_meanPriceAlsoViewed']
+    var_mean = stats_row['variance_meanPriceAlsoViewed']
+    mean_count = stats_row['mean_countAlsoViewed']
+    var_count = stats_row['variance_countAlsoViewed']
+
+    res['mean_meanPriceAlsoViewed'] = float(mean_mean) if mean_mean is not None else None
+    res['variance_meanPriceAlsoViewed'] = float(var_mean) if var_mean is not None else None
+    res['mean_countAlsoViewed'] = float(mean_count) if mean_count is not None else None
+    res['variance_countAlsoViewed'] = float(var_count) if var_count is not None else None
+
+    res['numNulls_meanPriceAlsoViewed'] = int(num_nulls_mean)
+    res['numNulls_countAlsoViewed'] = int(num_nulls_count)
+
+
+    # -------------------------------------------------------------------------
+
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_3')
+    return res
+    # -------------------------------------------------------------------------
+
