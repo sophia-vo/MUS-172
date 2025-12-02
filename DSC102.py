@@ -438,6 +438,63 @@ def task_4(data_io, product_data):
 
 
 
+# %load -s task_5 assignment2.py
+def task_5(data_io, product_processed_data, word_0, word_1, word_2):
+    # -----------------------------Column names--------------------------------
+    # Inputs:
+    title_column = 'title'
+    # Outputs:
+    titleArray_column = 'titleArray'
+    titleVector_column = 'titleVector'
+    # -------------------------------------------------------------------------
+
+    # ---------------------- Your implementation begins------------------------
+
+    product_processed_data_output = product_processed_data.withColumn(
+        titleArray_column,
+        F.split(F.lower(F.col(title_column)), ' ')
+    )
+
+    # 2) Train Word2Vec on titleArray
+    word2vec = M.feature.Word2Vec(
+        inputCol=titleArray_column,
+        outputCol=titleVector_column,
+        vectorSize=16,
+        minCount=100,
+        numPartitions=4,
+        seed=SEED
+    )
+    model = word2vec.fit(product_processed_data_output)
+
+    # 3) Transform to add titleVector column (even if not directly used later)
+    product_processed_data_output = model.transform(product_processed_data_output)
+
+
+
+    # -------------------------------------------------------------------------
+
+    # ---------------------- Put results in res dict --------------------------
+    res = {
+        'count_total': None,
+        'size_vocabulary': None,
+        'word_0_synonyms': [(None, None), ],
+        'word_1_synonyms': [(None, None), ],
+        'word_2_synonyms': [(None, None), ]
+    }
+    # Modify res:
+    res['count_total'] = product_processed_data_output.count()
+    res['size_vocabulary'] = model.getVectors().count()
+    for name, word in zip(
+        ['word_0_synonyms', 'word_1_synonyms', 'word_2_synonyms'],
+        [word_0, word_1, word_2]
+    ):
+        res[name] = model.findSynonymsArray(word, 10)
+    # -------------------------------------------------------------------------
+
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_5')
+    return res
+    # -------------------------------------------------------------------------
 
 
 
