@@ -425,3 +425,131 @@ def task_4(data_io, product_data):
     data_io.save(res, 'task_4')
     return res
     # -------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# %load -s task_6 assignment2.py
+def task_6(data_io, product_processed_data):
+    # -----------------------------Column names--------------------------------
+    # Inputs:
+    category_column = 'category'
+    # Outputs:
+    categoryIndex_column = 'categoryIndex'
+    categoryOneHot_column = 'categoryOneHot'
+    categoryPCA_column = 'categoryPCA'
+    # -------------------------------------------------------------------------    
+    
+    from pyspark.sql import functions as F
+    from pyspark.ml.feature import StringIndexer, OneHotEncoder, PCA
+    from pyspark.ml.stat import Summarizer
+    
+    # ---------------------- Your implementation begins------------------------
+    
+    # Step 1: One-hot encode the category column
+    # First, use StringIndexer to convert string categories to numerical indices
+    # Use handleInvalid='skip' to avoid creating an extra index for unseen values
+    # or use default behavior which only indexes seen values during fit
+    indexer = StringIndexer(
+        inputCol=category_column,
+        outputCol=categoryIndex_column
+    )
+    
+    # Fit the indexer and transform the data
+    indexer_model = indexer.fit(product_processed_data)
+    df_indexed = indexer_model.transform(product_processed_data)
+    
+    # One-hot encode the indexed column
+    # Set dropLast=False to ensure dimension equals the size of domain
+    encoder = OneHotEncoder(
+        inputCol=categoryIndex_column,
+        outputCol=categoryOneHot_column,
+        dropLast=False
+    )
+    
+    encoder_model = encoder.fit(df_indexed)
+    df_encoded = encoder_model.transform(df_indexed)
+    
+    # Step 2: Apply PCA to reduce dimension to 15
+    pca = PCA(
+        k=15,  # Reduce to 15 dimensions
+        inputCol=categoryOneHot_column,
+        outputCol=categoryPCA_column
+    )
+    
+    pca_model = pca.fit(df_encoded)
+    df_pca = pca_model.transform(df_encoded)
+    
+    # Step 3: Calculate statistics
+    # Count total rows
+    count_total = df_pca.count()
+    
+    # Calculate mean vectors using Summarizer
+    # For categoryOneHot
+    summary_onehot = df_pca.select(
+        Summarizer.mean(F.col(categoryOneHot_column)).alias("mean_onehot")
+    ).first()
+    
+    mean_vector_onehot = summary_onehot["mean_onehot"]
+    # Convert to dense representation and then to list
+    meanVector_categoryOneHot = mean_vector_onehot.toArray().tolist()
+    
+    # For categoryPCA
+    summary_pca = df_pca.select(
+        Summarizer.mean(F.col(categoryPCA_column)).alias("mean_pca")
+    ).first()
+    
+    mean_vector_pca = summary_pca["mean_pca"]
+    # Convert to dense representation and then to list
+    meanVector_categoryPCA = mean_vector_pca.toArray().tolist()
+    
+    # -------------------------------------------------------------------------
+    res = {
+        'count_total': count_total,
+        'meanVector_categoryOneHot': meanVector_categoryOneHot,
+        'meanVector_categoryPCA': meanVector_categoryPCA
+    }
+    # -------------------------------------------------------------------------
+    
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_6')
+    return res
+    # -------------------------------------------------------------------------
