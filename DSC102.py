@@ -659,3 +659,65 @@ def task_7(data_io, train_data, test_data):
     return res
     # -------------------------------------------------------------------------
 
+
+
+
+
+def task_8(data_io, train_data, test_data):
+    # ---------------------- Your implementation begins------------------------
+    features_col = 'features'
+    label_col = 'overall'
+    prediction_col = 'prediction'
+
+    # 1. Split original training into train/validation (75/25) with fixed seed
+    train_split, valid_split = train_data.randomSplit([0.75, 0.25], seed=SEED)
+
+    # Common evaluator for RMSE
+    evaluator = M.evaluation.RegressionEvaluator(
+        labelCol=label_col,
+        predictionCol=prediction_col,
+        metricName='rmse'
+    )
+
+    depths = [5, 7, 9, 12]
+    valid_rmses = {}
+    models = {}
+
+    # 2. Train models with different depths and compute validation RMSE
+    for d in depths:
+        dt = M.regression.DecisionTreeRegressor(
+            featuresCol=features_col,
+            labelCol=label_col,
+            predictionCol=prediction_col,
+            maxDepth=d
+        )
+        model = dt.fit(train_split)
+        models[d] = model
+
+        valid_predictions = model.transform(valid_split)
+        rmse = evaluator.evaluate(valid_predictions)
+        valid_rmses[d] = rmse
+
+    # 3. Pick best depth based on validation RMSE and evaluate on test data
+    best_depth = min(depths, key=lambda x: valid_rmses[x])
+    best_model = models[best_depth]
+
+    test_predictions = best_model.transform(test_data)
+    test_rmse = evaluator.evaluate(test_predictions)
+    # -------------------------------------------------------------------------
+
+    # ---------------------- Put results in res dict --------------------------
+    res = {
+        'test_rmse': float(test_rmse),
+        'valid_rmse_depth_5': float(valid_rmses[5]),
+        'valid_rmse_depth_7': float(valid_rmses[7]),
+        'valid_rmse_depth_9': float(valid_rmses[9]),
+        'valid_rmse_depth_12': float(valid_rmses[12]),
+    }
+    # -------------------------------------------------------------------------
+
+    # ----------------------------- Do not change -----------------------------
+    data_io.save(res, 'task_8')
+    return res
+    # -------------------------------------------------------------------------
+
