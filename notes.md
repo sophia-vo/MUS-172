@@ -596,26 +596,6 @@ The script is not just moving lines randomly. Its style comes from combining sev
 
 ---
 
-## One subtle issue in the code
-
-This warning check is slightly wrong:
-
-```python
-if (width != 1920 and height != 1080):
-```
-
-This only warns if **both** width and height are wrong.
-
-If one is wrong and the other is correct, it will not warn. Usually this should be:
-
-```python
-if width != 1920 or height != 1080:
-```
-
----
-
 ## In one sentence
 
 This code generates a frame-by-frame animated “blueprint maze” video where 20 autonomous drawing agents follow AI-generated movement instructions and leave behind fading architectural linework with a glitchy command display.
-
-I can also annotate the code section-by-section with inline comments in a cleaner “study guide” version.
